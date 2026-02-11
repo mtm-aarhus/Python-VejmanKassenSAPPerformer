@@ -34,7 +34,7 @@ def process(orchestrator_connection: OrchestratorConnection, queue_element: Queu
     cursor.execute("""
         SELECT *
         FROM [VejmanKassen].[dbo].[VejmanFakturering]
-        WHERE ID = ?
+        WHERE ID = ? AND FakturaStatus = 'TilFakturering'
     """, sql_id)
     row = cursor.fetchone()
     fakturafil = generate_invoice_csv(orchestrator_connection, conn, cursor, row)
