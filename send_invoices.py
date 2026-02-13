@@ -5,6 +5,8 @@ from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConn
 import re
 from collections import defaultdict, OrderedDict
 
+import tkinter as tk
+from tkinter import messagebox
 
 # --- Helpers ---
 def wait_ready(session, timeout=60.0, poll=0.1):
@@ -63,6 +65,23 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
     session.findById("wnd[0]/tbar[1]/btn[8]").press()
     wait_ready(session)
 
+    # --- Pause and ask user to verify invoice ---
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+
+    try:
+        ok = messagebox.askokcancel(
+            "Verify invoice",
+            "Verify invoice now.\n\nPress OK to continue, or Cancel to abort."
+        )
+    finally:
+        root.destroy()
+
+    if not ok:
+        raise RuntimeError("Cancelled by user during invoice verification.")
+
+        
     # --- Verify and press "Marker alle (F5)" -> btn[5] ---
     press_with_tooltip(session, "wnd[0]/tbar[1]/btn[5]", "Marker alle   (F5)")
     wait_ready(session)

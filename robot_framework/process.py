@@ -52,7 +52,7 @@ def process(orchestrator_connection: OrchestratorConnection, queue_element: Queu
         success, debitorsororder = run_zfi_fakturagrundlag(fakturafil)
     if success:
         if len(debitorsororder) == 1:
-                    ordernumber = debitorsororder[0]  # Extract the only item
+            ordernumber = debitorsororder[0]  # Extract the only item
         else:
             raise RuntimeError("Flere ordrenumre fundet, der burde kun være et.")
     else:
