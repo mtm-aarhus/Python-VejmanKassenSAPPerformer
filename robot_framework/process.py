@@ -17,8 +17,6 @@ from update_vejman import update_case
 # pylint: disable-next=unused-argument
 def process(orchestrator_connection: OrchestratorConnection, queue_element: QueueElement | None = None) -> None:
     """Do the primary process of the robot."""
-    orchestrator_connection.log_trace("Running process.")
-
     vejmantoken = orchestrator_connection.get_credential("VejmanToken").password
 
     sql_server = orchestrator_connection.get_constant("SqlServer").value
@@ -41,16 +39,18 @@ def process(orchestrator_connection: OrchestratorConnection, queue_element: Queu
 
     ordernumber = None
 
-    success, debitorsororder = run_zfi_fakturagrundlag(fakturafil)
+    success, debitorsororder = run_zfi_fakturagrundlag(fakturafil, orchestrator_connection)
     # Output file name based on date
     if not success:
+        orchestrator_connection.log_info(f"Debitor ikke oprettet for SQL række: {sql_id}, forsøger at oprette")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # remove last 3 digits → milliseconds
         filename = f"{sql_id}_Debitorer_CSV_{timestamp}.csv"
         debitor_csv = generate_csv(debitorsororder, filename)
-        create_debitors(debitor_csv)
-        #os.remove(debitor_csv)
-        success, debitorsororder = run_zfi_fakturagrundlag(fakturafil)
+        create_debitors(debitor_csv, orchestrator_connection)
+        os.remove(debitor_csv)
+        success, debitorsororder = run_zfi_fakturagrundlag(fakturafil, orchestrator_connection)
     if success:
+        orchestrator_connection.log_info("Debitor oprettet")
         if len(debitorsororder) == 1:
             ordernumber = debitorsororder[0]  # Extract the only item
         else:

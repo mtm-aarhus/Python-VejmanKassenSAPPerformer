@@ -5,9 +5,6 @@ from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConn
 import re
 from collections import defaultdict, OrderedDict
 
-import tkinter as tk
-from tkinter import messagebox
-
 # --- Helpers ---
 def wait_ready(session, timeout=60.0, poll=0.1):
     """Wait until SAP session is not busy or timeout."""
@@ -65,22 +62,6 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
     session.findById("wnd[0]/tbar[1]/btn[8]").press()
     wait_ready(session)
 
-    # --- Pause and ask user to verify invoice ---
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-
-    try:
-        ok = messagebox.askokcancel(
-            "Verify invoice",
-            "Verify invoice now.\n\nPress OK to continue, or Cancel to abort."
-        )
-    finally:
-        root.destroy()
-
-    if not ok:
-        raise RuntimeError("Cancelled by user during invoice verification.")
-
         
     # --- Verify and press "Marker alle (F5)" -> btn[5] ---
     press_with_tooltip(session, "wnd[0]/tbar[1]/btn[5]", "Marker alle   (F5)")
@@ -111,9 +92,15 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
             except Exception:
                 text = ""
             cells.append((col, row, text, child.Id))
-
+    for col, row, text, _ in sorted(cells, key=lambda x: (x[1], x[0])):
+        orchestrator_connection.log_info(f"[{col},{row}] '{text}'")
     # Make sure we only have table labels 
     if non_table_labels:
+        orchestrator_connection.log_error(
+            "Der findes labels udenfor tabellen (ikke i formatet lbl[col,row]): "
+            + ", ".join(f"{i}='{t}'" for i,t in non_table_labels[:10])
+            + (" ..." if len(non_table_labels) > 10 else "")
+        )
         raise RuntimeError(
             "Der findes labels udenfor tabellen (ikke i formatet lbl[col,row]): "
             + ", ".join(f"{i}='{t}'" for i,t in non_table_labels[:10])
@@ -123,6 +110,7 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
     # Build header (row==1) and data rows (row>=3, odd)
     headers = {col: norm_header(text) for col, row, text, _ in cells if row == 1}
     if not headers:
+        orchestrator_connection.log_error("Ingen tabel-headers (row=1) fundet.")
         raise RuntimeError("Ingen tabel-headers (row=1) fundet.")
 
     data_cells = [(col, row, text) for col, row, text, _ in cells if row >= 3 and row % 2 == 1]
@@ -134,6 +122,11 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
     # Sanity checks: rows only 1 or odd >=3 (else it's probably not the table)
     unexpected = [(c, r, t) for c, r, t, _ in cells if not (r == 1 or (r >= 3 and r % 2 == 1))]
     if unexpected:
+        orchestrator_connection.log_error(
+            "Uventede label-rækker (ikke row=1 eller en ulige række >=3): "
+            + ", ".join(f"[{c},{r}]='{t}'" for c, r, t in unexpected[:10])
+            + (" ..." if len(unexpected) > 10 else "")
+        )
         raise RuntimeError(
             "Uventede label-rækker (ikke row=1 eller en ulige række >=3): "
             + ", ".join(f"[{c},{r}]='{t}'" for c, r, t in unexpected[:10])
@@ -155,6 +148,7 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
             break
 
     if fejl_col is None:
+        orchestrator_connection.log_error("Kolonnen 'Fejl' blev ikke fundet i header-rækken.")
         raise RuntimeError("Kolonnen 'Fejl' blev ikke fundet i header-rækken.")
 
     # Group data by row index and map to {header: value}
@@ -183,6 +177,10 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
     if bad_fejl:
         # Build a helpful error message with first few offending rows
         preview = ", ".join(f"række {i}: '{v}'" for i, v in bad_fejl[:10])
+        orchestrator_connection.log_error(
+            f"Fejl-kolonnen skal være tom i alle rækker, men fandt værdier: {preview}"
+            + (" ..." if len(bad_fejl) > 10 else "")
+        )
         raise RuntimeError(
             f"Fejl-kolonnen skal være tom i alle rækker, men fandt værdier: {preview}"
             + (" ..." if len(bad_fejl) > 10 else "")
@@ -193,7 +191,7 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
     print(f"Antal rækker: {len(table_rows)}")
     # Access example: print each row
     for idx, rec in enumerate(table_rows,  start=1):
-        print(f"Row {idx}: {dict(rec)}")
+        orchestrator_connection.log_info(f"Row {idx}: {dict(rec)}")
     session.findById("wnd[0]/tbar[0]/btn[12]").press()
     session.findById("wnd[0]/tbar[0]/btn[12]").press()
 

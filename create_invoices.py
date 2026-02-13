@@ -3,6 +3,7 @@ import time
 import re
 import csv
 import os
+from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
 
 def is_cvr(cvr: str) -> bool:
     """
@@ -81,7 +82,7 @@ def check_label_text(session, element_id, expected_text):
         print(f"❌ Could not find label {element_id}: {str(e)}")
         return False
 
-def run_zfi_fakturagrundlag(filepath):
+def run_zfi_fakturagrundlag(filepath, orchestrator_connection: OrchestratorConnection):
     SapGuiAuto = win32com.client.GetObject("SAPGUI")
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -140,12 +141,13 @@ def run_zfi_fakturagrundlag(filepath):
 
         # Convenience: just the text values
         labels = [t for _, t in texts]
-        print("All label texts combined:\n" + " | ".join(labels))
+        orchestrator_connection.log_info("All label texts combined:\n" + " | ".join(labels))
 
         # Find the split point
         try:
             split_idx = labels.index("Række Fejltekst")
         except ValueError:
+            orchestrator_connection.log_error("Kunne ikke finde 'Række Fejltekst' i labels; kan ikke validere.")
             raise RuntimeError("Kunne ikke finde 'Række Fejltekst' i labels; kan ikke validere.")
 
         after = labels[split_idx + 1 :]
@@ -201,6 +203,7 @@ def run_zfi_fakturagrundlag(filepath):
 
     if i < len(items):
         leftover = items[i]
+        orchestrator_connection.log_error(f"Uventet uparret fejltekst i slutningen:\n{leftover}")
         raise ValueError(f"Uventet uparret fejltekst i slutningen:\n{leftover}")
     
     # Accepted error formats
@@ -230,15 +233,17 @@ def run_zfi_fakturagrundlag(filepath):
     session.findById("wnd[0]/tbar[0]/btn[12]").press()
 
     if invalid_rows:
+        orchestrator_connection.log_error("Uventede fejlmeddelelser:\n" + "\n".join(invalid_rows))
         raise ValueError("Uventede fejlmeddelelser:\n" + "\n".join(invalid_rows))
     
     if not extracted_ids:
+        orchestrator_connection.log_error("Ingen gyldige CVR-numre blev fundet.")
         raise ValueError("Ingen gyldige CVR-numre blev fundet.")
     
     return False, list(extracted_ids)
  
     
-def create_debitors(file_path):
+def create_debitors(file_path, orchestrator_connection: OrchestratorConnection):
     # Start SAP GUI scripting engine
     SapGuiAuto = win32com.client.GetObject("SAPGUI")
     application = SapGuiAuto.GetScriptingEngine
@@ -300,12 +305,14 @@ def create_debitors(file_path):
         try:
             marker_index = labels.index("1")  # "      1" will be stripped to "1"
         except ValueError:
+            orchestrator_connection.log_error("Marker '      1' not found in labels.")
             raise RuntimeError("Marker '      1' not found in labels.")
 
         # Lines after the marker
         after_lines = labels[marker_index + 1 :]
         
         if not after_lines:
+            orchestrator_connection.log_error("Ingen linjer fundet efter overskrift, debitoroprettelse er muligvis fejlet.")
             raise RuntimeError("Ingen linjer fundet efter overskrift, debitoroprettelse er muligvis fejlet.")
 
         # Required phrase
@@ -315,6 +322,10 @@ def create_debitors(file_path):
         bad_lines = [line for line in after_lines if required_phrase not in line]
 
         if bad_lines:
+            orchestrator_connection.log_error(
+                f"Nogle linjer efter står ikke som oprettet korrekt, da de mangler teksten '{required_phrase}':\n" +
+                "\n".join(repr(l) for l in bad_lines)
+            )
             raise RuntimeError(
                 f"Nogle linjer efter står ikke som oprettet korrekt, da de mangler teksten '{required_phrase}':\n" +
                 "\n".join(repr(l) for l in bad_lines)
