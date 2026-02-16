@@ -186,12 +186,13 @@ def send_invoice(orchestrator_connection: OrchestratorConnection):
             + (" ..." if len(bad_fejl) > 10 else "")
         )
 
-    print("Tabel verificeret (kun grid-labels, korrekt header/data-rækker).")
-    print(f"Kolonner: {column_names}")
-    print(f"Antal rækker: {len(table_rows)}")
+    # print("Tabel verificeret (kun grid-labels, korrekt header/data-rækker).")
+    # print(f"Kolonner: {column_names}")
+    # print(f"Antal rækker: {len(table_rows)}")
+
     # Access example: print each row
-    for idx, rec in enumerate(table_rows,  start=1):
-        orchestrator_connection.log_info(f"Row {idx}: {dict(rec)}")
+    # for idx, rec in enumerate(table_rows,  start=1):
+    #     orchestrator_connection.log_info(f"Row {idx}: {dict(rec)}")
     session.findById("wnd[0]/tbar[0]/btn[12]").press()
     session.findById("wnd[0]/tbar[0]/btn[12]").press()
 

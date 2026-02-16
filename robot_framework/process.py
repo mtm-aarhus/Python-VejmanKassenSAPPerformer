@@ -57,8 +57,8 @@ def process(orchestrator_connection: OrchestratorConnection, queue_element: Queu
             raise RuntimeError("Flere ordrenumre fundet, der burde kun være et.")
     else:
         raise RuntimeError("Fejlede indlæsning efter debitoroprettelse")
-            
-    
+
+    orchestrator_connection.log_info(f"Afsender faktura for {sql_id} med ordrenummer {ordernumber}")       
     send_invoice(orchestrator_connection)
     cursor.execute("""
         UPDATE [VejmanKassen].[dbo].[VejmanFakturering]

@@ -67,20 +67,6 @@ def wait_for_element(session, element_id, timeout=10):
             time.sleep(0.1)
     raise TimeoutError(f"Element {element_id} not found after {timeout} seconds")
 
-def check_label_text(session, element_id, expected_text):
-    try:
-        label = session.findById(element_id)
-        current_text = label.Text.strip()
-        print(f"Current Text: '{current_text}'")
-        if expected_text.strip().lower() in current_text.lower():
-            print("Match found!")
-            return True
-        else:
-            print("❌ Text does not match expected.")
-            return False
-    except Exception as e:
-        print(f"❌ Could not find label {element_id}: {str(e)}")
-        return False
 
 def run_zfi_fakturagrundlag(filepath, orchestrator_connection: OrchestratorConnection):
     SapGuiAuto = win32com.client.GetObject("SAPGUI")
@@ -118,11 +104,10 @@ def run_zfi_fakturagrundlag(filepath, orchestrator_connection: OrchestratorConne
             except:
                 continue 
     combined = " | ".join(texts)
-    print(f"All label texts combined:\n{combined}")
+    orchestrator_connection.log_info(f"All label texts combined:\n{combined}")
 
-    print(f"Current Text: '{combined}'")
     if "Input filen er fejlfri - klar til opdatering.".strip().lower() in combined.lower():
-        print("Fejlfri indlæsning")
+        orchestrator_connection.log_info("Fejlfri test, opretter fakturaen")
         session.findById("wnd[0]/tbar[0]/btn[12]").press()
         opret_radio = wait_for_element(session, "wnd[0]/usr/radP_OPDAT")
         opret_radio.select()  # more semantic than .setFocus + VKey
@@ -175,12 +160,11 @@ def run_zfi_fakturagrundlag(filepath, orchestrator_connection: OrchestratorConne
             )
 
         # At this point, everything non-empty was valid and we've captured all xyz values
-        print(f"Valideret. Fangede {len(standardordre_ids)} Standardordre-id(s): {standardordre_ids}")
+        orchestrator_connection.log_info(f"Valideret. Fangede {len(standardordre_ids)} Standardordre-id(s): {standardordre_ids}")
         
         session.findById("wnd[0]/tbar[0]/btn[12]").press()
         session.findById("wnd[0]/tbar[0]/btn[12]").press()
 
-        print("DONE")
         return True, standardordre_ids
 
     items = [p.strip() for p in combined.split('|') if p.strip()]
@@ -278,10 +262,10 @@ def create_debitors(file_path, orchestrator_connection: OrchestratorConnection):
             text = child.Text.strip()
             if text:  # skip empty labels
                 combined_text += text + "\n"
-    print(combined_text)
+    orchestrator_connection.log_info(combined_text)
     
     if "alt er ok" in combined_text.lower() and not "ikke korrekt" in combined_text.lower():
-        print("Debitorfil klar til indlæsning")
+        orchestrator_connection.log_info(f"Debitor oprettes")
         session.findById("wnd[0]/tbar[0]/btn[12]").press()
         checkbox = session.findById("wnd[0]/usr/chkP_TEST")
         if checkbox.selected:
@@ -299,7 +283,7 @@ def create_debitors(file_path, orchestrator_connection: OrchestratorConnection):
                     text = ""
                 labels.append(text)
 
-        print("Labels found:", labels)
+        orchestrator_connection.log_info("Labels found:", labels)
 
         # Locate the marker line ("      1")
         try:
@@ -331,7 +315,7 @@ def create_debitors(file_path, orchestrator_connection: OrchestratorConnection):
                 "\n".join(repr(l) for l in bad_lines)
             )
 
-        print("Alle linjer indeholder den krævede tekst.")
+        orchestrator_connection.log_info("Alle linjer indeholder den krævede tekst.")
         session.findById("wnd[0]/tbar[0]/btn[12]").press()
         session.findById("wnd[0]/tbar[0]/btn[12]").press()
         

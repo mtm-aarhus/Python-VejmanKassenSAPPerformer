@@ -140,8 +140,7 @@ def initialize_sap(orchestrator_connection: OrchestratorConnection):
 def dismiss_until_easy_access(timeout=30):
     start_time = time.time()
 
-    # Step 1: Wait for SAP GUI session to exist
-    print("Waiting for SAP GUI session to become available...")
+
     session = None
     while time.time() - start_time < timeout:
         try:
@@ -152,7 +151,6 @@ def dismiss_until_easy_access(timeout=30):
                 connection = application.Children(0)
                 if connection.Children.Count > 0:
                     session = connection.Children(0)
-                    print("SAP session is ready.")
                     break
         except Exception:
             pass  # Keep waiting if not ready yet
@@ -163,7 +161,6 @@ def dismiss_until_easy_access(timeout=30):
         raise TimeoutError("SAP session not available within timeout.")
 
     # Step 2: Loop until SAP Easy Access is reached
-    print("Checking for SAP Easy Access and dismissing popups if necessary...")
     while time.time() - start_time < timeout:
         try:
             active_window = session.ActiveWindow
@@ -171,7 +168,6 @@ def dismiss_until_easy_access(timeout=30):
             window_title = active_window.Text.strip()
 
             if window_name == "wnd[0]" and window_title.startswith("SAP Easy Access"):
-                print("SAP Easy Access screen reached.")
                 return True
 
             if window_name != "wnd[0]":
