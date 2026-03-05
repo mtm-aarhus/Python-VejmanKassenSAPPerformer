@@ -283,9 +283,7 @@ def create_debitors(file_path, orchestrator_connection: OrchestratorConnection):
                     text = ""
                 labels.append(text)
 
-        orchestrator_connection.log_info("Labels found:", labels)
-
-        # Locate the marker line ("      1")
+        orchestrator_connection.log_info("Labels found:\n" + "\n".join(labels))        # Locate the marker line ("      1")
         try:
             marker_index = labels.index("1")  # "      1" will be stripped to "1"
         except ValueError:
