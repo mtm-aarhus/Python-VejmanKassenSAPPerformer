@@ -11,7 +11,7 @@ from create_invoices import run_zfi_fakturagrundlag, generate_csv, create_debito
 from generate_invoice_csv import generate_invoice_csv
 from send_invoices import send_invoice
 from update_vejman import update_case
-
+from pez_client import PEZClient
 
 
 # pylint: disable-next=unused-argument
@@ -71,3 +71,34 @@ def process(orchestrator_connection: OrchestratorConnection, queue_element: Queu
     os.remove(fakturafil)
     if not vejmanid == "Henstilling":
         update_case(vejmanid, vejmantoken)
+    else:
+        # Extract fields from SQL row
+        pez_uuid = row.PEZUUID
+        tilladelsestype = row.TilladelsesType
+        totalpris = row.TotalPris
+        startdato = row.Startdato
+        slutdato = row.Slutdato
+        antal_dage = row.AntalDage
+
+        # --- PEZ comment if case came from PEZ ---
+        if pez_uuid:
+            pez_client = None
+            pez_cred = orchestrator_connection.get_credential("PEZUI")
+
+            if pez_cred:
+                pez_client = PEZClient(pez_cred.username, pez_cred.password)
+
+            orchestrator_connection.log_info(f"Sending PEZ comment for UUID {pez_uuid}")
+
+            comment = pez_client.format_faktura_comment(
+                order_number=ordernumber,
+                tilladelsestype=tilladelsestype,
+                totalpris=totalpris,
+                startdato=startdato,
+                slutdato=slutdato,
+                antal_dage=antal_dage
+            )
+
+            pez_client.add_internal_comment(pez_uuid, comment)
+
+            orchestrator_connection.log_info("PEZ comment added successfully")
